@@ -1,0 +1,219 @@
+// Gestor de Asistencias y Notas — esquema de datos.
+// Convenciones: soft delete (deletedAt), auditoría (AuditLog),
+// Decimal exacto para notas/porcentajes, unicidad por profesor.
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ───────── Enums ─────────
+enum Role {
+  TEACHER
+  ADMIN
+}
+
+enum UserStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum StudentStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum DocumentType {
+  DNI
+  CE
+  PASSPORT
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+}
+
+enum SessionStatus {
+  OPEN
+  CLOSED
+}
+
+enum AttendanceSource {
+  PUBLIC
+  MANUAL
+}
+
+// ───────── Usuarios (profesores) ─────────
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  passwordHash String
+  name         String
+  role         Role       @default(TEACHER)
+  status       UserStatus @default(PENDING)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  students Student[]
+  courses  Course[]
+
+  @@index([deletedAt])
+}
+
+// ───────── Alumnos ─────────
+model Student {
+  id             String        @id @default(cuid())
+  code           String
+  name           String
+  paternalName   String
+  maternalName   String?
+  documentType   DocumentType
+  documentNumber String
+  email          String?
+  phone          String?
+  status         StudentStatus @default(ACTIVE)
+
+  teacherId String
+  teacher   User   @relation(fields: [teacherId], references: [id])
+
+  enrollments Enrollment[]
+  grades      Grade[]
+  attendances Attendance[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@unique([teacherId, code])
+  @@unique([teacherId, documentType, documentNumber])
+  @@index([teacherId, status])
+  @@index([teacherId, deletedAt])
+}
+
+// ───────── Cursos ─────────
+model Course {
+  id           String  @id @default(cuid())
+  code         String
+  name         String
+  description  String?
+  passingGrade Decimal @default(11) @db.Decimal(4, 2)
+
+  teacherId String
+  teacher   User   @relation(fields: [teacherId], references: [id])
+
+  enrollments     Enrollment[]
+  gradeCategories GradeCategory[]
+  sessions        AttendanceSession[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@unique([teacherId, code])
+  @@index([teacherId, deletedAt])
+}
+
+// ───────── Matrículas (N:M alumno-curso) ─────────
+model Enrollment {
+  id         String    @id @default(cuid())
+  studentId  String
+  courseId   String
+  enrolledAt DateTime  @default(now())
+  deletedAt  DateTime?
+
+  student Student @relation(fields: [studentId], references: [id])
+  course  Course  @relation(fields: [courseId], references: [id])
+
+  @@unique([studentId, courseId])
+  @@index([courseId])
+  @@index([studentId])
+}
+
+// ───────── Evaluaciones (categorías de nota) ─────────
+model GradeCategory {
+  id         String    @id @default(cuid())
+  courseId   String
+  name       String
+  percentage Decimal   @db.Decimal(5, 2)
+  order      Int
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
+
+  course Course  @relation(fields: [courseId], references: [id])
+  grades Grade[]
+
+  @@index([courseId, order])
+}
+
+// ───────── Notas ─────────
+model Grade {
+  id              String   @id @default(cuid())
+  studentId       String
+  gradeCategoryId String
+  score           Decimal  @db.Decimal(5, 2)
+  comment         String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  student       Student       @relation(fields: [studentId], references: [id])
+  gradeCategory GradeCategory @relation(fields: [gradeCategoryId], references: [id])
+
+  @@unique([studentId, gradeCategoryId])
+  @@index([gradeCategoryId])
+}
+
+// ───────── Sesión de asistencia ─────────
+model AttendanceSession {
+  id        String        @id @default(cuid())
+  courseId  String
+  code      String
+  startedAt DateTime      @default(now())
+  expiresAt DateTime
+  status    SessionStatus @default(OPEN)
+  createdAt DateTime      @default(now())
+
+  course      Course       @relation(fields: [courseId], references: [id])
+  attendances Attendance[]
+
+  @@index([courseId, status])
+  @@index([code])
+  @@index([expiresAt])
+}
+
+// ───────── Asistencia registrada ─────────
+model Attendance {
+  id                  String           @id @default(cuid())
+  attendanceSessionId String
+  studentId           String
+  status              AttendanceStatus @default(PRESENT)
+  registeredAt        DateTime         @default(now())
+  source              AttendanceSource @default(PUBLIC)
+
+  session AttendanceSession @relation(fields: [attendanceSessionId], references: [id])
+  student Student           @relation(fields: [studentId], references: [id])
+
+  @@unique([attendanceSessionId, studentId])
+  @@index([studentId])
+}
+
+// ───────── Auditoría básica ─────────
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String
+  entity    String
+  entityId  String?
+  metadata  Json?
+  ip        String?
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([entity, entityId])
+}
