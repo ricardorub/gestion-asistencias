@@ -26,7 +26,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-export function DashboardView({ data }: { data: DashboardData }) {
+// Importaciones para manejar la aceptación del curso libre
+import { Button } from "@/components/ui/button";
+import { acceptCourseAction } from "@/features/courses/actions";
+import { toast } from "sonner";
+
+interface DashboardViewProps {
+  data: DashboardData;
+  pendingCourses?: { id: string; name: string }[];
+}
+
+export function DashboardView({ data, pendingCourses }: DashboardViewProps) {
   const { kpis, breakdown, trend, courses, courseAttendance } = data;
 
   // Filtros independientes de Curso para cada gráfico
@@ -75,6 +85,45 @@ export function DashboardView({ data }: { data: DashboardData }) {
 
   return (
     <div className="flex flex-col gap-8">
+      
+      {/* 🟡 BANNER DE ACEPTACIÓN DE CURSOS ASIGNADOS 🟡 */}
+      {pendingCourses && pendingCourses.length > 0 && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/30 dark:bg-amber-950/20">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h4 className="font-display text-base font-semibold text-amber-900 dark:text-amber-200">
+                ¡Tienes cursos asignados pendientes de aceptación!
+              </h4>
+              <p className="text-sm text-amber-700 dark:text-amber-400">
+                El administrador te ha asignado nuevas materias. Confirma cada una para habilitar la toma de asistencias y el registro de notas.
+              </p>
+            </div>
+          </div>
+          
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {pendingCourses.map((curso) => (
+              <div key={curso.id} className="flex items-center justify-between rounded-lg border bg-background p-3 shadow-sm">
+                <span className="font-medium text-sm text-foreground">{curso.name}</span>
+                <Button
+                  size="sm"
+                  variant="default"
+                  onClick={async () => {
+                    const res = await acceptCourseAction(curso.id);
+                    if (res.ok) {
+                      toast.success(`Curso "${curso.name}" aceptado correctamente.`);
+                    } else {
+                      toast.error(res.error);
+                    }
+                  }}
+                >
+                  Aceptar
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* KPI Cards */}
       <div className="grid gap-4 sm:grid-cols-3">
         {stats.map(({ label, value, icon: Icon }) => (

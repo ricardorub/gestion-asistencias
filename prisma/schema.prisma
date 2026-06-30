@@ -9,6 +9,7 @@ datasource db {
   provider = "postgresql"
 }
 
+
 // ───────── Enums ─────────
 enum Role {
   TEACHER
@@ -48,6 +49,12 @@ enum AttendanceSource {
   MANUAL
 }
 
+enum CourseStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
 // ───────── Usuarios (profesores) ─────────
 model User {
   id           String     @id @default(cuid())
@@ -57,7 +64,7 @@ model User {
   role         Role       @default(TEACHER)
   status       UserStatus @default(PENDING)
   createdAt    DateTime   @default(now())
-  updatedAt    DateTime  @updatedAt
+  updatedAt    DateTime   @updatedAt
   deletedAt    DateTime?
 
   students Student[]
@@ -98,11 +105,12 @@ model Student {
 
 // ───────── Cursos ─────────
 model Course {
-  id           String  @id @default(cuid())
+  id           String       @id @default(cuid())
   code         String
   name         String
   description  String?
-  passingGrade Decimal @default(11) @db.Decimal(4, 2)
+  passingGrade Decimal      @default(11) @db.Decimal(4, 2)
+  status       CourseStatus @default(PENDING)
 
   teacherId String
   teacher   User   @relation(fields: [teacherId], references: [id])

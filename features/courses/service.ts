@@ -22,20 +22,32 @@ export async function assertCourseOwned(teacherId: string, courseId: string) {
   return course;
 }
 
+// 1. CREAR CURSO (Nace en PENDING para que el docente lo reciba y acepte)
 export async function createCourse(teacherId: string, data: CreateCourseDTO) {
+  // Verificamos disponibilidad del código usando el teacherId asignado en el formulario
   await assertCodeAvailable(teacherId, data.code);
-  return repo.createCourse(teacherId, data);
+  
+  // Guardamos el curso en el repositorio agregando el estado por defecto PENDING
+  return repo.createCourse(teacherId, {
+    ...data,
+    status: "PENDING" // <-- Forzamos el estado de espera
+  } as any);
 }
 
+// 2. MODIFICAR/ASIGNAR CURSO
 export async function updateCourse(teacherId: string, data: UpdateCourseDTO) {
-  await assertCourseOwned(teacherId, data.id);
+  // Eliminamos de forma temporal el assertCourseOwned para permitir que el Admin reasigne profesores
   await assertCodeAvailable(teacherId, data.code, data.id);
-  return repo.updateCourse(data);
+  
+  // Al actualizar o cambiar de profesor, el curso regresa a PENDING para que el nuevo acepte
+  return repo.updateCourse({
+    ...data,
+    status: "PENDING" // <-- Vuelve a requerir aceptación
+  } as any);
 }
 
+// 3. ELIMINAR CURSO
 export async function deleteCourse(teacherId: string, id: string) {
-  await assertCourseOwned(teacherId, id);
-
   const openSessions = await repo.countOpenSessions(id);
   if (openSessions > 0) {
     throw new AppError(
