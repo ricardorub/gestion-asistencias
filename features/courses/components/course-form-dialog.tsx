@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition, type ReactNode } from "react";
-import { useForm, Controller } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import {
@@ -95,7 +95,6 @@ export function CourseFormDialog({
   const {
     register,
     handleSubmit,
-    control,
     reset,
     setError,
     formState: { errors },
@@ -105,7 +104,7 @@ export function CourseFormDialog({
       ? { ...initial, name: parsed.baseName, description: initial.description ?? "" }
       : {
           code: `C-${nanoid(6).toUpperCase()}`,
-          name: "Matemática",
+          name: "",
           description: "",
           passingGrade: 11,
         },
@@ -126,7 +125,7 @@ export function CourseFormDialog({
         if (!isEdit) {
           reset({
             code: `C-${nanoid(6).toUpperCase()}`,
-            name: "Matemática",
+            name: "",
             description: "",
             passingGrade: 11,
           });
@@ -164,32 +163,12 @@ export function CourseFormDialog({
             <div className="grid grid-cols-4 gap-4">
               <div className="col-span-2">
                 <Field data-invalid={!!errors.name}>
-                  <FieldLabel>Curso</FieldLabel>
-                  <Controller
-                    control={control}
-                    name="name"
-                    render={({ field }) => (
-                      <Select
-                        items={{
-                          Matemática: "Matemática",
-                          Lenguaje: "Lenguaje",
-                          Historia: "Historia",
-                          Geografía: "Geografía",
-                        }}
-                        value={field.value}
-                        onValueChange={field.onChange}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Matemática">Matemática</SelectItem>
-                          <SelectItem value="Lenguaje">Lenguaje</SelectItem>
-                          <SelectItem value="Historia">Historia</SelectItem>
-                          <SelectItem value="Geografía">Geografía</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    )}
+                  <FieldLabel htmlFor="courseName">Curso</FieldLabel>
+                  <Input
+                    id="courseName"
+                    placeholder="Ej. Programación, Robótica..."
+                    aria-invalid={!!errors.name}
+                    {...register("name")}
                   />
                   <FieldError errors={errors.name ? [errors.name] : undefined} />
                 </Field>

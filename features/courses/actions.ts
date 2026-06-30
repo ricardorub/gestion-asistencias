@@ -7,6 +7,8 @@ import { recordAudit } from "@/lib/audit";
 import { ok, type ActionResult } from "@/lib/result";
 import { createCourseSchema, updateCourseSchema } from "./schema";
 import * as service from "./service";
+import { prisma } from "@/lib/prisma";
+
 
 export async function createCourseAction(
   input: unknown,
@@ -78,6 +80,38 @@ export async function deleteCourseAction(id: string): Promise<ActionResult> {
     revalidatePath("/cursos");
     return ok(undefined);
   } catch (e) {
+    return toActionError(e);
+  }
+}
+
+export async function acceptCourseAction(courseId: string): Promise<ActionResult> {
+  try {
+    // 1. Validamos que el usuario esté autenticado en la sesión
+    const session = await requireTeacher();
+
+    // 2. Modificamos el estado en el contenedor de Docker a ACCEPTED
+    const course = await prisma.course.update({
+      where: { id: courseId },
+      data: { status: "ACCEPTED" },
+    });
+
+    // 3. Registramos la acción en la bitácora de auditoría del sistema
+    await recordAudit({
+      userId: session.user.id,
+      action: "course.accept",
+      entity: "Course",
+      entityId: course.id,
+      metadata: { name: course.name, code: course.code },
+    });
+
+    // 4. Rompemos la caché de manera agresiva para recalcular asistencias, KPI y gráficos al instante
+    revalidatePath("/");
+    revalidatePath("/cursos");
+    revalidatePath(`/cursos/${course.id}`);
+
+    return ok(undefined);
+  } catch (e) {
+    // Retornamos el error formateado con el gestor nativo de la app
     return toActionError(e);
   }
 }
